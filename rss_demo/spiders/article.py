@@ -1,5 +1,16 @@
-class Article:
+# -*- coding: utf-8 -*- 
 
+def cmpArticle(a, b):
+    aId = a.articleId
+    bId = b.articleId
+    if aId > bId:
+        return 1
+    elif aId < bId:
+        return -1
+    else:
+        return 0
+
+class Article:
     def __init__(self, link, title, pageIndex, articleId):
         self.link = link
         self.title = title
@@ -14,6 +25,3 @@ class Article:
 
     def __eq__(self, other):
         return self.link == other.link    
-
-    def __cmp__(self, other):  
-        return cmp(self.articleId, other.articleId)  

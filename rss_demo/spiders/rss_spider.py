@@ -1,9 +1,13 @@
 # -*- coding: utf-8 -*- 
+from .article import cmpArticle
+from .article import Article
 import scrapy
 import os
 import re
 import requests as req
-from article import Article
+import functools
+import chardet 
+
 
 class RssSpider(scrapy.Spider):
     name = "rss"
@@ -158,6 +162,7 @@ class RssSpider(scrapy.Spider):
     # allowed_domains = ["https://tech.meituan.com"]
     # next_url = "https://tech.meituan.com/?l=40&pos=0"
 
+    # 164篇
     start_urls = ['http://taobaofed.org/']
     allowed_domains = ["http://taobaofed.org"]
     next_url = "http://taobaofed.org/page/2"
@@ -178,17 +183,17 @@ class RssSpider(scrapy.Spider):
     # ^\n|\n+(?=\n)|\n$
     def parse(self, response):
         # 解析出body标签里面的内容
-        htmlBody = self.processResp(response.body)
+        htmlBody = self.processResp(response.body.decode())
         # 根据第二页得出两页之间不同的内容区域
         if self.page_index == 1 and self.next_url != "":
             self.parseSecondPage(htmlBody)
         lineArray = htmlBody.split("\n")
         endLine = len(lineArray) - self.end
-        print "start\n",self.start
-        print "endLine\n",endLine
+        print("start %d" %(self.start))
+        print("endLine %d" %(endLine))
         listBody = "".join(lineArray[self.start:endLine])
-        with open("listbody", 'wb') as f:
-            f.write(listBody)
+        # with open("listbody", 'wb') as f:
+        #     f.write(listBody)
         sel = scrapy.Selector(text=listBody)
         links_in_a_page = sel.xpath('//a[@href]')
         
@@ -235,7 +240,7 @@ class RssSpider(scrapy.Spider):
         article = Article(response.url, title.strip(), page, articleId)
         key = article.hashKey()
 
-        if self.result_map.has_key(key):
+        if self.result_map.get(key):
             # self.result_map[key].setPage(page)
             if self.result_map[key].articleId <= articleId:
                 self.result_map[key].articleId = articleId
@@ -258,26 +263,26 @@ class RssSpider(scrapy.Spider):
             if self.start > end1 or self.start > end2:
                 break
 
-            if page1ContentArray[self.start].decode("UTF-8") == page2ContentArray[self.start]:
-                # print "start匹配成功",page1ContentArray[self.start]
+            if page1ContentArray[self.start] == page2ContentArray[self.start]:
+                # print("start匹配成功 %s" %(page1ContentArray[self.start]))
                 self.start += 1
             else:
-                # print "start匹配结束",page1ContentArray[self.start]
-                # print "start匹配结束",page2ContentArray[self.start]
+                # print("start匹配结束 %s" %(page1ContentArray[self.start]))
+                # print("start匹配结束 %s" %(page2ContentArray[self.start]))
                 break
         
         while True:
             if end1 < 0 or end2 < 0:
                 break
 
-            if page1ContentArray[end1].decode("UTF-8") == page2ContentArray[end2]:
-                # print "end匹配成功",page1ContentArray[end1]
+            if page1ContentArray[end1] == page2ContentArray[end2]:
+                # print("end匹配成功 %s" %(page1ContentArray[end1]))
                 end1 -= 1
                 end2 -= 1
                 self.end += 1
             else:
-                # print "end匹配结束",page1ContentArray[end1]
-                # print "end匹配结束",page2ContentArray[end2]
+                # print("end匹配结束 %s" %(page1ContentArray[end1]))
+                # print("end匹配结束 %s" %(page2ContentArray[end2]))
                 break
               
 
@@ -287,12 +292,14 @@ class RssSpider(scrapy.Spider):
 
     def closed(self, reason):
         with open("result.txt", 'wb') as f:
-            for article in sorted(self.result_array):
-                f.write("page" + str(article.pageIndex) + ": link:" + article.link.encode('utf-8'))
-                f.write(" title: " + article.title.encode('utf-8'))
-                f.write(" articleId: " + str(article.articleId))
-                f.write("\n")
+            self.result_array.sort(key=functools.cmp_to_key(cmpArticle))
+            for article in self.result_array:
+                f.write(bytes("page" + str(article.pageIndex) + ": link:" + article.link, encoding = "utf-8"))
+                f.write(bytes(" title: " + article.title, encoding = "utf-8"))
+                f.write(bytes(" articleId: " + str(article.articleId), encoding = "utf-8"))
+                f.write(b"\n")
                     
+    
 
     # todo about 404
     def isValidUrl(self, url):
